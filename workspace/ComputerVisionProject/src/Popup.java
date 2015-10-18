@@ -52,27 +52,27 @@ public class Popup extends JFrame {
 	 */
 	public Popup() {
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		setBounds(100, 100, 622, 482);
+		setBounds(100, 100, 700, 500);
 		contentPane = new JPanel();
 		contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
-		contentPane.setLayout(new BorderLayout(0, 0));
 		setContentPane(contentPane);
 		
 		//dropdown menu
 		JComboBox comboBox = new JComboBox();
+		comboBox.setBounds(5, 5, 674, 20);
 		comboBox.setModel(new DefaultComboBoxModel(new String[] {"Smoothing Filter", "Median Filter", "Sharpening Laplacian Filter", "High-boosting Filter", "Histogram Equalization", "FFT"}));
 		
 		//source image
 		lblSourceImage = new JLabel();
-		lblSourceImage.setSize(234, 137);
+		lblSourceImage.setBounds(33, 36, 347, 200);
 		
 		//changed image
 		lblChangedImage = new JLabel();
-		lblChangedImage.setSize(234, 137);
+		lblChangedImage.setBounds(356, 227, 303, 177);
 		
 		//perform the conversion
 		btnConvert = new JButton("Convert");
-		btnConvert.setSize(100,20);
+		btnConvert.setBounds(5, 433, 674, 23);
 		btnConvert.addActionListener(new ActionListener()
 		{
 			  public void actionPerformed(ActionEvent e)
@@ -81,22 +81,23 @@ public class Popup extends JFrame {
 				  convert();
 			  }
 			});
+		contentPane.setLayout(null);
 		
 		//add to content pane
-		contentPane.add(lblSourceImage, BorderLayout.WEST);
-		contentPane.add(lblChangedImage, BorderLayout.EAST);
-		contentPane.add(comboBox,BorderLayout.NORTH);
-		contentPane.add(btnConvert,BorderLayout.SOUTH);
+		contentPane.add(lblSourceImage);
+		contentPane.add(lblChangedImage);
+		contentPane.add(comboBox);
+		contentPane.add(btnConvert);
 		
 	}
 	
 	//does the conversion
 	public void convert(){
-		String sourcePath = "C:\\Users\\parkin\\workspace\\ComputerVisionProject\\src\\BigTree.jpg";
+		String sourcePath = "C:\\Users\\parkin\\Documents\\GitHub\\Computer-Vision-Work\\workspace\\ComputerVisionProject\\src\\BigTree.jpg";
 		Mat imageMat = getImage(sourcePath);
 		
-		imageMat = getHE(imageMat, 0);
-		
+		//imageMat = getHE(imageMat, 0);
+		imageMat = getSmoothing(imageMat, 3);
 		
 		//displays the images
 		lblSourceImage.setIcon(new ImageIcon(sourcePath));
@@ -160,6 +161,127 @@ public class Popup extends JFrame {
 	}
 
 
+	public Mat getSmoothing(Mat input, int filterSize){
+		Mat output = input.clone();
+		int width = (int) (input.total());
+		int height = (int) (input.channels());
+		int totalSize = (int) (input.total() * input.channels());
+		double[] pixels = new double[totalSize];
+		double[] newPixels = new double[totalSize];
+		input.convertTo(input, CvType.CV_64FC3);
+		input.get(0, 0, pixels);
+		
+		//set default filter size
+		if(filterSize < 3){
+			filterSize = 3;
+		}
+
+		//traverse pixels
+		for(int i = 0; i < width; i++){
+			for(int j = 0; j < height; j++){
+				int position = (j * width) + i;
+				int newValue = 0;
+				
+				//average the pixels
+				for(int a = 0; a < filterSize; a++){
+					for(int b = 0; b < filterSize; b++){
+						int x = (a - filterSize / 2);
+						int y = (b - filterSize / 2) * width;
+						int newPosition = position + x + y;
+						
+						if(newPosition >= 0 && newPosition < totalSize){
+							newValue += pixels[newPosition];
+						}
+					}
+				}
+				
+				newPixels[position] = (newValue / ((filterSize) * (filterSize)));
+				//newPixels[position] = (pixels[position] + 1);
+			}
+		}
+		
+		/*byte[][] filterArray = new byte[filterSize][filterSize];
+		
+		//build filter
+		for(int i = 0; i < filterSize; i++){
+			for(int j = 0; j < filterSize; j++){
+				filterArray[i][j] = 1;
+			}
+		}
+		
+		//missing edge size
+		int edgeSize = filterSize/2;
+		
+		//traverse each pixel
+		for(int i = 0; i < width; i++){
+			for(int j = 0; j < height; j++){
+				//create the array
+				byte[][] pixelArray = new byte[filterSize][filterSize];
+				
+				//traversing new array
+				for(int a = 0; a < filterSize; a++){
+					for(int b = 0; b < filterSize; b++){
+						int x = (i - filterSize / 2) - (a - filterSize / 2);
+						int y = (j - filterSize / 2) - (b - filterSize / 2);
+						
+						if(x < 0 || y < 0){
+							pixelArray[a][b] = 0;
+						}
+						else{
+							pixelArray[a][b] = pixels[((width * y) + x)];
+						}
+					}
+				}
+				
+				//set the new value
+				newPixels[((width * j) + i)] = get2dMulti(pixelArray,filterArray);
+			}
+		}*/
+
+		output.put(0, 0, newPixels);
+		
+		return output;
+	}
+	
+	public Mat getMedian(Mat input, int filterSize){
+		return null;
+	}
+	
+	public Mat getSharpeningLaplacian(Mat input, int filterSize){
+		return null;
+	}
+	
+	public Mat getHighBoosting(Mat input, int filterSize){
+		return null;
+	}
+	
+	public Mat getFFT(Mat input){
+		return null;
+	}
+	
+	public byte get2dMulti(byte[][] pixelArray, byte[][] filter){
+		int value = 0;
+		int size = pixelArray.length; 
+		
+		for(int i = 0; i < size; i++){
+			int total = 0;
+			for(int j = 0; j < size; j++){
+				total += pixelArray[j][i] * filter[i][j];
+			}
+			
+			value += total;
+		}
+		
+		return (byte)(value / size);
+	}
+	
+	public byte[][] getPixelMatrix(byte[][] input, int currentX, 
+									int currentY, int size){
+		byte[][] output = new byte[size][size];
+		
+		return output;
+	}
+	
 	//returns an Image to display
     public Image toBufferedImage(Mat m){
       int type = BufferedImage.TYPE_BYTE_GRAY;
