@@ -97,11 +97,11 @@ public class Popup extends JFrame {
 		Mat imageMat = getImage(sourcePath);
 		
 		//imageMat = getHE(imageMat, 0);
-		imageMat = getSmoothing(imageMat, 3);
+		Mat outputMat = getSmoothing(imageMat, 3);
 		
 		//displays the images
 		lblSourceImage.setIcon(new ImageIcon(sourcePath));
-		lblChangedImage.setIcon(new ImageIcon(toBufferedImage(imageMat)));
+		lblChangedImage.setIcon(new ImageIcon(toBufferedImage(outputMat)));
 		
 	}
 	
@@ -163,9 +163,9 @@ public class Popup extends JFrame {
 
 	public Mat getSmoothing(Mat input, int filterSize){
 		Mat output = input.clone();
-		int width = (int) (input.total());
-		int height = (int) (input.channels());
-		int totalSize = (int) (input.total() * input.channels());
+		int height = (int) (input.total());
+		int width = (int) (input.channels());
+		int totalSize = width * height;
 		double[] pixels = new double[totalSize];
 		double[] newPixels = new double[totalSize];
 		input.convertTo(input, CvType.CV_64FC3);
@@ -176,6 +176,11 @@ public class Popup extends JFrame {
 			filterSize = 3;
 		}
 
+		/*Mat source = input.clone();
+		Mat output = new Mat();
+		output = source;
+        Imgproc.blur(output, source, new Size(filterSize, filterSize));
+		 */
 		//traverse pixels
 		for(int i = 0; i < width; i++){
 			for(int j = 0; j < height; j++){
@@ -284,18 +289,17 @@ public class Popup extends JFrame {
 	
 	//returns an Image to display
     public Image toBufferedImage(Mat m){
-      int type = BufferedImage.TYPE_BYTE_GRAY;
-      if ( m.channels() > 1 ) {
-          type = BufferedImage.TYPE_3BYTE_BGR;
-      }
-      int bufferSize = m.channels()*m.cols()*m.rows();
-      byte [] b = new byte[bufferSize];
-      m.get(0,0,b); // get all the pixels
-      BufferedImage image = new BufferedImage(m.cols(),m.rows(), type);
-      final byte[] targetPixels = ((DataBufferByte) image.getRaster().getDataBuffer()).getData();
-      System.arraycopy(b, 0, targetPixels, 0, b.length);  
-      return image;
-
+        int type = BufferedImage.TYPE_BYTE_GRAY;
+        if ( m.channels() > 1 ) {
+            type = BufferedImage.TYPE_3BYTE_BGR;
+        }
+        int bufferSize = m.channels()*m.cols()*m.rows();
+        byte [] b = new byte[bufferSize];
+        m.get(0,0,b); // get all the pixels
+        BufferedImage image = new BufferedImage(m.cols(),m.rows(), type);
+        final byte[] targetPixels = ((DataBufferByte) image.getRaster().getDataBuffer()).getData();
+        System.arraycopy(b, 0, targetPixels, 0, b.length);  
+        return image;
   }
 
 
