@@ -97,7 +97,10 @@ public class Popup extends JFrame {
 		Mat imageMat = getImage(sourcePath);
 		
 		//imageMat = getHE(imageMat, 0);
-		Mat outputMat = getSmoothing(imageMat, 3);
+		//Mat outputMat = getSmoothing(imageMat, 3);
+		//Mat outputMat = getMedian(imageMat, 3);
+		//Mat outputMat = getSharpeningLaplacian(imageMat, 1);
+		Mat outputMat = getHighBoosting(imageMat, 7);
 		
 		//displays the images
 		lblSourceImage.setIcon(new ImageIcon(sourcePath));
@@ -160,7 +163,6 @@ public class Popup extends JFrame {
 		return output;
 	}
 
-
 	public Mat getSmoothing(Mat input, int filterSize){
 		Mat output = input.clone();
 		int height = (int) (input.total());
@@ -171,16 +173,16 @@ public class Popup extends JFrame {
 		input.convertTo(input, CvType.CV_64FC3);
 		input.get(0, 0, pixels);
 		
+		//make sure it is odd
+		if(filterSize % 2 == 0){
+			filterSize += 1;
+		}
+		
 		//set default filter size
 		if(filterSize < 3){
 			filterSize = 3;
 		}
 
-		/*Mat source = input.clone();
-		Mat output = new Mat();
-		output = source;
-        Imgproc.blur(output, source, new Size(filterSize, filterSize));
-		 */
 		//traverse pixels
 		for(int i = 0; i < width; i++){
 			for(int j = 0; j < height; j++){
@@ -201,47 +203,9 @@ public class Popup extends JFrame {
 				}
 				
 				newPixels[position] = (newValue / ((filterSize) * (filterSize)));
-				//newPixels[position] = (pixels[position] + 1);
 			}
 		}
 		
-		/*byte[][] filterArray = new byte[filterSize][filterSize];
-		
-		//build filter
-		for(int i = 0; i < filterSize; i++){
-			for(int j = 0; j < filterSize; j++){
-				filterArray[i][j] = 1;
-			}
-		}
-		
-		//missing edge size
-		int edgeSize = filterSize/2;
-		
-		//traverse each pixel
-		for(int i = 0; i < width; i++){
-			for(int j = 0; j < height; j++){
-				//create the array
-				byte[][] pixelArray = new byte[filterSize][filterSize];
-				
-				//traversing new array
-				for(int a = 0; a < filterSize; a++){
-					for(int b = 0; b < filterSize; b++){
-						int x = (i - filterSize / 2) - (a - filterSize / 2);
-						int y = (j - filterSize / 2) - (b - filterSize / 2);
-						
-						if(x < 0 || y < 0){
-							pixelArray[a][b] = 0;
-						}
-						else{
-							pixelArray[a][b] = pixels[((width * y) + x)];
-						}
-					}
-				}
-				
-				//set the new value
-				newPixels[((width * j) + i)] = get2dMulti(pixelArray,filterArray);
-			}
-		}*/
 
 		output.put(0, 0, newPixels);
 		
@@ -249,42 +213,119 @@ public class Popup extends JFrame {
 	}
 	
 	public Mat getMedian(Mat input, int filterSize){
-		return null;
+		Mat output = input.clone();
+		int height = (int) (input.total());
+		int width = (int) (input.channels());
+		int totalSize = width * height;
+		double[] pixels = new double[totalSize];
+		double[] newPixels = new double[totalSize];
+		input.convertTo(input, CvType.CV_64FC3);
+		input.get(0, 0, pixels);
+		
+		//make sure it is odd
+		if(filterSize % 2 == 0){
+			filterSize += 1;
+		}
+		
+		//set default filter size
+		if(filterSize < 3){
+			filterSize = 3;
+		}
+
+		//traverse pixels
+		for(int i = 0; i < width; i++){
+			for(int j = 0; j < height; j++){
+				int position = (j * width) + i;
+				int max = Integer.MIN_VALUE;
+				int min = Integer.MAX_VALUE;
+				int newValue = 0;
+				
+				//average the pixels
+				for(int a = 0; a < filterSize; a++){
+					for(int b = 0; b < filterSize; b++){
+						int x = (a - filterSize / 2);
+						int y = (b - filterSize / 2) * width;
+						int newPosition = position + x + y;
+						
+						if(newPosition >= 0 && newPosition < totalSize){
+							if(pixels[newPosition] > max){
+								max = (int)pixels[newPosition];
+							}
+							else if(pixels[newPosition] < min){
+								min = (int)pixels[newPosition];
+							}
+						}
+					}
+				}
+				
+				newValue = (max + min) / 2;
+				
+				newPixels[position] = newValue;
+			}
+		}
+		
+		output.put(0, 0, newPixels);
+		
+		return output;
 	}
 	
-	public Mat getSharpeningLaplacian(Mat input, int filterSize){
-		return null;
+	public Mat getSharpeningLaplacian(Mat input, int cValue){
+		Mat output = input.clone();
+		int height = (int) (input.total());
+		int width = (int) (input.channels());
+		int totalSize = width * height;
+		int filterSize = 3;
+		double[] pixels = new double[totalSize];
+		double[] newPixels = new double[totalSize];
+		input.convertTo(input, CvType.CV_64FC3);
+		input.get(0, 0, pixels);
+		
+		
+		//using
+		//| -1  -1  -1 |
+		//| -1   8  -1 |
+		//| -1  -1  -1 |
+		
+		//traverse pixels
+		for(int i = 0; i < width; i++){
+			for(int j = 0; j < height; j++){
+				int position = (j * width) + i;
+				int newValue = 0;
+				
+				//average the pixels
+				for(int a = 0; a < filterSize; a++){
+					for(int b = 0; b < filterSize; b++){
+						int x = (a - filterSize / 2);
+						int y = (b - filterSize / 2) * width;
+						int newPosition = position + x + y;
+
+						if(a == (filterSize / 2) && b == (filterSize / 2)){
+							if(cValue == 1){
+								newValue += (8 * pixels[newPosition]);
+							}else{
+								newValue += ((8 * cValue + 1) * pixels[newPosition]);
+							}
+						}
+						else if(newPosition >= 0 && newPosition < totalSize){
+							newValue += (-1 * cValue * pixels[newPosition]);
+						}
+					}
+				}
+				
+				newPixels[position] = newValue;
+			}
+		}
+		output.put(0, 0, newPixels);
+		
+		return output;
 	}
 	
-	public Mat getHighBoosting(Mat input, int filterSize){
-		return null;
+	public Mat getHighBoosting(Mat input, int cValue){
+		return getSharpeningLaplacian(input, cValue);
 	}
 	
 	public Mat getFFT(Mat input){
 		return null;
-	}
-	
-	public byte get2dMulti(byte[][] pixelArray, byte[][] filter){
-		int value = 0;
-		int size = pixelArray.length; 
-		
-		for(int i = 0; i < size; i++){
-			int total = 0;
-			for(int j = 0; j < size; j++){
-				total += pixelArray[j][i] * filter[i][j];
-			}
-			
-			value += total;
-		}
-		
-		return (byte)(value / size);
-	}
-	
-	public byte[][] getPixelMatrix(byte[][] input, int currentX, 
-									int currentY, int size){
-		byte[][] output = new byte[size][size];
-		
-		return output;
 	}
 	
 	//returns an Image to display
