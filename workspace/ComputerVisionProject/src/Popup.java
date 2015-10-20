@@ -19,6 +19,7 @@ import javax.swing.ImageIcon;
 import javax.swing.JComboBox;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
+import javax.swing.JTextField;
 
 public class Popup extends JFrame {
 
@@ -26,6 +27,8 @@ public class Popup extends JFrame {
 	private JLabel lblSourceImage;
 	private JLabel lblChangedImage;
 	private JButton btnConvert;
+	private JComboBox comboBox;
+	private JTextField txtSize;
 
 	/**
 	 * Launch the application.
@@ -58,10 +61,20 @@ public class Popup extends JFrame {
 		setContentPane(contentPane);
 		
 		//dropdown menu
-		JComboBox comboBox = new JComboBox();
+		comboBox = new JComboBox();
 		comboBox.setBounds(5, 5, 674, 20);
 		comboBox.setModel(new DefaultComboBoxModel(new String[] {"Smoothing Filter", "Median Filter", "Sharpening Laplacian Filter", "High-boosting Filter", "Histogram Equalization", "FFT"}));
 		
+		//if a particular item is selected
+		comboBox.addActionListener(
+                new ActionListener(){
+                    public void actionPerformed(ActionEvent e){
+                        JComboBox combo = (JComboBox)e.getSource();
+                        String currentQuantity = (String)combo.getSelectedItem();
+                        System.out.println(currentQuantity);
+                    }
+                }            
+        );
 		//source image
 		lblSourceImage = new JLabel();
 		lblSourceImage.setBounds(33, 36, 347, 200);
@@ -89,21 +102,39 @@ public class Popup extends JFrame {
 		contentPane.add(comboBox);
 		contentPane.add(btnConvert);
 		
+		//input box of size
+		txtSize = new JTextField();
+		txtSize.setBounds(559, 55, 86, 20);
+		contentPane.add(txtSize);
+		txtSize.setColumns(10);
+		
 	}
 	
 	//does the conversion
 	public void convert(){
 		String sourcePath = "C:\\Users\\parkin\\Documents\\GitHub\\Computer-Vision-Work\\workspace\\ComputerVisionProject\\src\\BigTree.jpg";
 		Mat imageMat = getImage(sourcePath);
+		Imgproc.cvtColor(imageMat, imageMat, Imgproc.COLOR_RGB2GRAY);
 		
-		//imageMat = getHE(imageMat, 0);
-		//Mat outputMat = getSmoothing(imageMat, 3);
-		//Mat outputMat = getMedian(imageMat, 3);
-		//Mat outputMat = getSharpeningLaplacian(imageMat, 1);
-		Mat outputMat = getHighBoosting(imageMat, 7);
+		Mat outputMat = imageMat.clone();
+		
+		//check what is selected
+		if(comboBox.getSelectedItem().toString().equals("Smoothing Filter")){
+			outputMat = getSmoothing(imageMat, 3);
+		}else if(comboBox.getSelectedItem().toString().equals("Median Filter")){
+			outputMat = getMedian(imageMat, 3);
+		}else if(comboBox.getSelectedItem().toString().equals("Sharpening Laplacian Filter")){
+			outputMat = getSharpeningLaplacian(imageMat, 1);
+		}else if(comboBox.getSelectedItem().toString().equals("High-boosting Filter")){
+			outputMat = getHighBoosting(imageMat, 7);
+		}else if(comboBox.getSelectedItem().toString().equals("Histogram Equalization")){
+			outputMat = getHE(imageMat, 0);			
+		}else if(comboBox.getSelectedItem().toString().equals("FFT")){
+			
+		}
 		
 		//displays the images
-		lblSourceImage.setIcon(new ImageIcon(sourcePath));
+		lblSourceImage.setIcon(new ImageIcon(toBufferedImage(imageMat)));
 		lblChangedImage.setIcon(new ImageIcon(toBufferedImage(outputMat)));
 		
 	}
@@ -118,16 +149,18 @@ public class Popup extends JFrame {
 	
 	public Mat getHE(Mat input, int filterSize){
 		//variables
+		Mat inMat = input.clone();
 		Mat output = input.clone();
-		int maxValue = 256;
+		int maxValue = 511;
 		int size = (int) (input.total() * input.channels());
-		byte[] pixels = new byte[size];
-		byte[] newPixels = new byte[size];
+		double[] pixels = new double[size];
+		double[] newPixels = new double[size];
 		int[] newCounterArray = new int[maxValue];
 		int[] counterArray = new int[maxValue];
 		double[] probArray = new double[maxValue];
-		
-		input.get(0, 0, pixels);
+		//Imgproc.equalizeHist(inMat, output);
+		inMat.convertTo(inMat, CvType.CV_64FC3);
+		inMat.get(0, 0, pixels);
 		
 		//set arrays to zero
 		for (int i = 0; i < maxValue; i++){
@@ -155,7 +188,7 @@ public class Popup extends JFrame {
 
 		//create newpixel array
 		for (int i = 0; i < size; i++){
-			newPixels[i] = (byte)(newCounterArray[pixels[i] + maxValue/2] - maxValue/2);
+			newPixels[i] = (double)(newCounterArray[(int)pixels[i] + maxValue/2] - maxValue/2);
 		}
 		
 		output.put(0, 0, newPixels);
@@ -164,14 +197,15 @@ public class Popup extends JFrame {
 	}
 
 	public Mat getSmoothing(Mat input, int filterSize){
+		Mat inMat = input.clone();
 		Mat output = input.clone();
 		int height = (int) (input.total());
 		int width = (int) (input.channels());
 		int totalSize = width * height;
 		double[] pixels = new double[totalSize];
 		double[] newPixels = new double[totalSize];
-		input.convertTo(input, CvType.CV_64FC3);
-		input.get(0, 0, pixels);
+		inMat.convertTo(inMat, CvType.CV_64FC3);
+		inMat.get(0, 0, pixels);
 		
 		//make sure it is odd
 		if(filterSize % 2 == 0){
@@ -213,14 +247,15 @@ public class Popup extends JFrame {
 	}
 	
 	public Mat getMedian(Mat input, int filterSize){
+		Mat inMat = input.clone();
 		Mat output = input.clone();
 		int height = (int) (input.total());
 		int width = (int) (input.channels());
 		int totalSize = width * height;
 		double[] pixels = new double[totalSize];
 		double[] newPixels = new double[totalSize];
-		input.convertTo(input, CvType.CV_64FC3);
-		input.get(0, 0, pixels);
+		inMat.convertTo(inMat, CvType.CV_64FC3);
+		inMat.get(0, 0, pixels);
 		
 		//make sure it is odd
 		if(filterSize % 2 == 0){
@@ -270,6 +305,7 @@ public class Popup extends JFrame {
 	}
 	
 	public Mat getSharpeningLaplacian(Mat input, int cValue){
+		Mat inMat = input.clone();
 		Mat output = input.clone();
 		int height = (int) (input.total());
 		int width = (int) (input.channels());
@@ -277,8 +313,8 @@ public class Popup extends JFrame {
 		int filterSize = 3;
 		double[] pixels = new double[totalSize];
 		double[] newPixels = new double[totalSize];
-		input.convertTo(input, CvType.CV_64FC3);
-		input.get(0, 0, pixels);
+		inMat.convertTo(inMat, CvType.CV_64FC3);
+		inMat.get(0, 0, pixels);
 		
 		
 		//using
@@ -342,6 +378,4 @@ public class Popup extends JFrame {
         System.arraycopy(b, 0, targetPixels, 0, b.length);  
         return image;
   }
-
-
 }
