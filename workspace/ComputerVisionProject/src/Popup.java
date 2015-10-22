@@ -20,6 +20,7 @@ import javax.swing.JComboBox;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
 import javax.swing.JTextField;
+import javax.swing.JCheckBox;
 
 public class Popup extends JFrame {
 
@@ -29,7 +30,11 @@ public class Popup extends JFrame {
 	private JButton btnConvert;
 	private JComboBox comboBox;
 	private JTextField txtSize;
+	private JCheckBox chckbxGlobal;
 
+	//for comparison only 
+	private boolean testMode = true;
+	
 	/**
 	 * Launch the application.
 	 */
@@ -63,15 +68,41 @@ public class Popup extends JFrame {
 		//dropdown menu
 		comboBox = new JComboBox();
 		comboBox.setBounds(5, 5, 674, 20);
-		comboBox.setModel(new DefaultComboBoxModel(new String[] {"Smoothing Filter", "Median Filter", "Sharpening Laplacian Filter", "High-boosting Filter", "Histogram Equalization", "FFT"}));
+		comboBox.setModel(new DefaultComboBoxModel(new String[] {"Smoothing Filter", 
+																 "Median Filter", 
+																 "Sharpening Laplacian Filter", 
+																 "High-boosting Filter", 
+																 "Histogram Equalization", 
+																 "FFT"}));
 		
 		//if a particular item is selected
 		comboBox.addActionListener(
                 new ActionListener(){
                     public void actionPerformed(ActionEvent e){
                         JComboBox combo = (JComboBox)e.getSource();
-                        String currentQuantity = (String)combo.getSelectedItem();
-                        System.out.println(currentQuantity);
+                        String currentSelection = (String)combo.getSelectedItem();
+                		
+                        //text field
+                        if(currentSelection.equals("Smoothing Filter") ||
+                			currentSelection.equals("Median Filter") ||
+                        	currentSelection.equals("Sharpening Laplacian Filter") ||
+                        	currentSelection.equals("High-boosting Filter") ||
+                        	currentSelection.equals("Histogram Equalization")){
+                        	
+                        	//display text field
+                        	txtSize.setVisible(true);
+                        }
+                        else{
+                        	//remove text field
+                        	txtSize.setVisible(false);
+                        }
+                        
+                        //checkbox
+                        if(currentSelection.equals("Histogram Equalization")){
+                        	chckbxGlobal.setVisible(true);
+                        }else{
+                        	chckbxGlobal.setVisible(false);
+                        }
                     }
                 }            
         );
@@ -108,6 +139,11 @@ public class Popup extends JFrame {
 		contentPane.add(txtSize);
 		txtSize.setColumns(10);
 		
+		chckbxGlobal = new JCheckBox("Global");
+		chckbxGlobal.setBounds(562, 95, 97, 23);
+		chckbxGlobal.setVisible(false);
+		contentPane.add(chckbxGlobal);
+		
 	}
 	
 	//does the conversion
@@ -117,25 +153,41 @@ public class Popup extends JFrame {
 		Imgproc.cvtColor(imageMat, imageMat, Imgproc.COLOR_RGB2GRAY);
 		
 		Mat outputMat = imageMat.clone();
+		String input = txtSize.getText();
 		
-		//check what is selected
-		if(comboBox.getSelectedItem().toString().equals("Smoothing Filter")){
-			outputMat = getSmoothing(imageMat, 3);
-		}else if(comboBox.getSelectedItem().toString().equals("Median Filter")){
-			outputMat = getMedian(imageMat, 3);
-		}else if(comboBox.getSelectedItem().toString().equals("Sharpening Laplacian Filter")){
-			outputMat = getSharpeningLaplacian(imageMat, 1);
-		}else if(comboBox.getSelectedItem().toString().equals("High-boosting Filter")){
-			outputMat = getHighBoosting(imageMat, 7);
-		}else if(comboBox.getSelectedItem().toString().equals("Histogram Equalization")){
-			outputMat = getHE(imageMat, 0);			
-		}else if(comboBox.getSelectedItem().toString().equals("FFT")){
+		try{
+			int size = Integer.parseInt(input);
+		
+			//check what is selected
+			if(comboBox.getSelectedItem().toString().equals("Smoothing Filter")){
+				outputMat = getSmoothing(imageMat, size);
+			}else if(comboBox.getSelectedItem().toString().equals("Median Filter")){
+				outputMat = getMedian(imageMat, size);
+			}else if(comboBox.getSelectedItem().toString().equals("Sharpening Laplacian Filter")){
+				outputMat = getSharpeningLaplacian(imageMat, 1);
+			}else if(comboBox.getSelectedItem().toString().equals("High-boosting Filter")){
+				outputMat = getHighBoosting(imageMat, size);
+			}else if(comboBox.getSelectedItem().toString().equals("Histogram Equalization")){
+				
+				if(chckbxGlobal.isSelected()){
+					//global HE
+					outputMat = getHE(imageMat, 0);
+				}else{
+					//local HE
+					outputMat = getHE(imageMat, size);		
+				}	
+			}else if(comboBox.getSelectedItem().toString().equals("FFT")){
+				
+			}
 			
+			//displays the images
+			lblSourceImage.setIcon(new ImageIcon(toBufferedImage(imageMat)));
+			lblChangedImage.setIcon(new ImageIcon(toBufferedImage(outputMat)));
+
+		}catch(Exception e){
+			System.out.println("Please enter an Integer value!");
+			e.printStackTrace();
 		}
-		
-		//displays the images
-		lblSourceImage.setIcon(new ImageIcon(toBufferedImage(imageMat)));
-		lblChangedImage.setIcon(new ImageIcon(toBufferedImage(outputMat)));
 		
 	}
 	
@@ -151,47 +203,52 @@ public class Popup extends JFrame {
 		//variables
 		Mat inMat = input.clone();
 		Mat output = input.clone();
-		int maxValue = 511;
+		int maxValue = 255;
 		int size = (int) (input.total() * input.channels());
 		double[] pixels = new double[size];
 		double[] newPixels = new double[size];
 		int[] newCounterArray = new int[maxValue];
 		int[] counterArray = new int[maxValue];
 		double[] probArray = new double[maxValue];
-		//Imgproc.equalizeHist(inMat, output);
-		inMat.convertTo(inMat, CvType.CV_64FC3);
-		inMat.get(0, 0, pixels);
 		
-		//set arrays to zero
-		for (int i = 0; i < maxValue; i++){
-			counterArray[i] = 0;
-			probArray[i] = 0;
-		}
-
-		//each pixel intensity
-		for (int i = 0; i < size; i++){
-			counterArray[(int)(pixels[i] + maxValue/2)]++;
-		}
+		if(testMode){
+			Imgproc.equalizeHist(inMat, output);
+		}else{
 		
-		//calculate p(r)
-		for (int i = 0; i < maxValue; i++){
-			probArray[i] = (counterArray[i] / (double)size);
-		
+			inMat.convertTo(inMat, CvType.CV_64FC3);
+			inMat.get(0, 0, pixels);
+			
+			//set arrays to zero
+			for (int i = 0; i < maxValue; i++){
+				counterArray[i] = 0;
+				probArray[i] = 0;
+			}
+	
+			//each pixel intensity
+			for (int i = 0; i < size; i++){
+				counterArray[(int)pixels[i]]++;
+			}
+			
+			//calculate p(r)
+			for (int i = 0; i < maxValue; i++){
+				probArray[i] = ((double)counterArray[i] / (double)size);
+			
+			}
+			
+			//get new values
+			double sum = 0;
+			for (int i = 0; i < maxValue; i++){
+				newCounterArray[i] = (int)(((maxValue - 1)/((double)size)) * sum);
+				sum += counterArray[i];
+			}
+	
+			//create newpixel array
+			for (int i = 0; i < size; i++){
+				newPixels[i] = (double)(newCounterArray[(int)pixels[i]]);
+			}
+			
+			output.put(0, 0, newPixels);
 		}
-		
-		//get new values
-		double sum = 0;
-		for (int i = 0; i < maxValue; i++){
-			sum += counterArray[i];
-			newCounterArray[i] = (int)(((maxValue - 1)/((double)size)) * sum);
-		}
-
-		//create newpixel array
-		for (int i = 0; i < size; i++){
-			newPixels[i] = (double)(newCounterArray[(int)pixels[i] + maxValue/2] - maxValue/2);
-		}
-		
-		output.put(0, 0, newPixels);
 		
 		return output;
 	}
@@ -204,45 +261,49 @@ public class Popup extends JFrame {
 		int totalSize = width * height;
 		double[] pixels = new double[totalSize];
 		double[] newPixels = new double[totalSize];
-		inMat.convertTo(inMat, CvType.CV_64FC3);
-		inMat.get(0, 0, pixels);
-		
-		//make sure it is odd
-		if(filterSize % 2 == 0){
-			filterSize += 1;
-		}
-		
-		//set default filter size
-		if(filterSize < 3){
-			filterSize = 3;
-		}
 
-		//traverse pixels
-		for(int i = 0; i < width; i++){
-			for(int j = 0; j < height; j++){
-				int position = (j * width) + i;
-				int newValue = 0;
-				
-				//average the pixels
-				for(int a = 0; a < filterSize; a++){
-					for(int b = 0; b < filterSize; b++){
-						int x = (a - filterSize / 2);
-						int y = (b - filterSize / 2) * width;
-						int newPosition = position + x + y;
-						
-						if(newPosition >= 0 && newPosition < totalSize){
-							newValue += pixels[newPosition];
+		if(testMode){
+			Imgproc.blur(inMat, output,new Size(filterSize,filterSize));
+		}else{
+			inMat.convertTo(inMat, CvType.CV_64FC3);
+			inMat.get(0, 0, pixels);
+			
+			//make sure it is odd
+			if(filterSize % 2 == 0){
+				filterSize += 1;
+			}
+			
+			//set default filter size
+			if(filterSize < 3){
+				filterSize = 3;
+			}
+	
+			//traverse pixels
+			for(int i = 0; i < width; i++){
+				for(int j = 0; j < height; j++){
+					int position = (j * width) + i;
+					int newValue = 0;
+					
+					//average the pixels
+					for(int a = 0; a < filterSize; a++){
+						for(int b = 0; b < filterSize; b++){
+							int x = (a - filterSize / 2);
+							int y = (b - filterSize / 2) * width;
+							int newPosition = position + x + y;
+							
+							if(newPosition >= 0 && newPosition < totalSize){
+								newValue += pixels[newPosition];
+							}
 						}
 					}
+					
+					newPixels[position] = (newValue / ((filterSize) * (filterSize)));
 				}
-				
-				newPixels[position] = (newValue / ((filterSize) * (filterSize)));
 			}
+			
+	
+			output.put(0, 0, newPixels);
 		}
-		
-
-		output.put(0, 0, newPixels);
-		
 		return output;
 	}
 	
@@ -254,53 +315,57 @@ public class Popup extends JFrame {
 		int totalSize = width * height;
 		double[] pixels = new double[totalSize];
 		double[] newPixels = new double[totalSize];
-		inMat.convertTo(inMat, CvType.CV_64FC3);
-		inMat.get(0, 0, pixels);
-		
-		//make sure it is odd
-		if(filterSize % 2 == 0){
-			filterSize += 1;
-		}
-		
-		//set default filter size
-		if(filterSize < 3){
-			filterSize = 3;
-		}
 
-		//traverse pixels
-		for(int i = 0; i < width; i++){
-			for(int j = 0; j < height; j++){
-				int position = (j * width) + i;
-				int max = Integer.MIN_VALUE;
-				int min = Integer.MAX_VALUE;
-				int newValue = 0;
-				
-				//average the pixels
-				for(int a = 0; a < filterSize; a++){
-					for(int b = 0; b < filterSize; b++){
-						int x = (a - filterSize / 2);
-						int y = (b - filterSize / 2) * width;
-						int newPosition = position + x + y;
-						
-						if(newPosition >= 0 && newPosition < totalSize){
-							if(pixels[newPosition] > max){
-								max = (int)pixels[newPosition];
-							}
-							else if(pixels[newPosition] < min){
-								min = (int)pixels[newPosition];
+		if(testMode){
+			Imgproc.medianBlur(inMat, output, filterSize);
+		}else{
+			inMat.convertTo(inMat, CvType.CV_64FC3);
+			inMat.get(0, 0, pixels);
+			
+			//make sure it is odd
+			if(filterSize % 2 == 0){
+				filterSize += 1;
+			}
+			
+			//set default filter size
+			if(filterSize < 3){
+				filterSize = 3;
+			}
+	
+			//traverse pixels
+			for(int i = 0; i < width; i++){
+				for(int j = 0; j < height; j++){
+					int position = (j * width) + i;
+					int max = Integer.MIN_VALUE;
+					int min = Integer.MAX_VALUE;
+					int newValue = 0;
+					
+					//average the pixels
+					for(int a = 0; a < filterSize; a++){
+						for(int b = 0; b < filterSize; b++){
+							int x = (a - filterSize / 2);
+							int y = (b - filterSize / 2) * width;
+							int newPosition = position + x + y;
+							
+							if(newPosition >= 0 && newPosition < totalSize){
+								if(pixels[newPosition] > max){
+									max = (int)pixels[newPosition];
+								}
+								else if(pixels[newPosition] < min){
+									min = (int)pixels[newPosition];
+								}
 							}
 						}
 					}
+					
+					newValue = (max + min) / 2;
+					
+					newPixels[position] = newValue;
 				}
-				
-				newValue = (max + min) / 2;
-				
-				newPixels[position] = newValue;
 			}
+			
+			output.put(0, 0, newPixels);
 		}
-		
-		output.put(0, 0, newPixels);
-		
 		return output;
 	}
 	
@@ -313,46 +378,50 @@ public class Popup extends JFrame {
 		int filterSize = 3;
 		double[] pixels = new double[totalSize];
 		double[] newPixels = new double[totalSize];
-		inMat.convertTo(inMat, CvType.CV_64FC3);
-		inMat.get(0, 0, pixels);
-		
-		
-		//using
-		//| -1  -1  -1 |
-		//| -1   8  -1 |
-		//| -1  -1  -1 |
-		
-		//traverse pixels
-		for(int i = 0; i < width; i++){
-			for(int j = 0; j < height; j++){
-				int position = (j * width) + i;
-				int newValue = 0;
-				
-				//average the pixels
-				for(int a = 0; a < filterSize; a++){
-					for(int b = 0; b < filterSize; b++){
-						int x = (a - filterSize / 2);
-						int y = (b - filterSize / 2) * width;
-						int newPosition = position + x + y;
 
-						if(a == (filterSize / 2) && b == (filterSize / 2)){
-							if(cValue == 1){
-								newValue += (8 * pixels[newPosition]);
-							}else{
-								newValue += ((8 * cValue + 1) * pixels[newPosition]);
+		if(testMode){
+			Imgproc.Laplacian(inMat, output,cValue);
+		}else{
+			inMat.convertTo(inMat, CvType.CV_64FC3);
+			inMat.get(0, 0, pixels);
+			
+			
+			//using
+			//| -1  -1  -1 |
+			//| -1   8  -1 |
+			//| -1  -1  -1 |
+			
+			//traverse pixels
+			for(int i = 0; i < width; i++){
+				for(int j = 0; j < height; j++){
+					int position = (j * width) + i;
+					int newValue = 0;
+					
+					//average the pixels
+					for(int a = 0; a < filterSize; a++){
+						for(int b = 0; b < filterSize; b++){
+							int x = (a - filterSize / 2);
+							int y = (b - filterSize / 2) * width;
+							int newPosition = position + x + y;
+	
+							if(a == (filterSize / 2) && b == (filterSize / 2)){
+								if(cValue == 1){
+									newValue += (8 * pixels[newPosition]);
+								}else{
+									newValue += ((8 * cValue + 1) * pixels[newPosition]);
+								}
+							}
+							else if(newPosition >= 0 && newPosition < totalSize){
+								newValue += (-1 * cValue * pixels[newPosition]);
 							}
 						}
-						else if(newPosition >= 0 && newPosition < totalSize){
-							newValue += (-1 * cValue * pixels[newPosition]);
-						}
 					}
+					
+					newPixels[position] = newValue;
 				}
-				
-				newPixels[position] = newValue;
 			}
+			output.put(0, 0, newPixels);
 		}
-		output.put(0, 0, newPixels);
-		
 		return output;
 	}
 	
