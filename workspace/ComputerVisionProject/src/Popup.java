@@ -5,14 +5,16 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.border.EmptyBorder;
 
 import org.opencv.core.*;
-import org.opencv.imgcodecs.*;
-import org.opencv.imgproc.Imgproc;
+import org.opencv.highgui.*;
+import org.opencv.imgproc.*;
 
 import javax.swing.JLabel;
 import javax.swing.ImageIcon;
@@ -155,17 +157,18 @@ public class Popup extends JFrame {
 		Mat outputMat = imageMat.clone();
 		String input = txtSize.getText();
 		
-		try{
-			int size = Integer.parseInt(input);
-		
+		try{		
 			//check what is selected
 			if(comboBox.getSelectedItem().toString().equals("Smoothing Filter")){
+				int size = Integer.parseInt(input);
 				outputMat = getSmoothing(imageMat, size);
 			}else if(comboBox.getSelectedItem().toString().equals("Median Filter")){
+				int size = Integer.parseInt(input);
 				outputMat = getMedian(imageMat, size);
 			}else if(comboBox.getSelectedItem().toString().equals("Sharpening Laplacian Filter")){
 				outputMat = getSharpeningLaplacian(imageMat, 1);
 			}else if(comboBox.getSelectedItem().toString().equals("High-boosting Filter")){
+				int size = Integer.parseInt(input);
 				outputMat = getHighBoosting(imageMat, size);
 			}else if(comboBox.getSelectedItem().toString().equals("Histogram Equalization")){
 				
@@ -173,11 +176,12 @@ public class Popup extends JFrame {
 					//global HE
 					outputMat = getHE(imageMat, 0);
 				}else{
+					int size = Integer.parseInt(input);
 					//local HE
 					outputMat = getHE(imageMat, size);		
 				}	
 			}else if(comboBox.getSelectedItem().toString().equals("FFT")){
-				
+				outputMat = getFFT(imageMat);
 			}
 			
 			//displays the images
@@ -194,7 +198,7 @@ public class Popup extends JFrame {
 	//get local image using opencv
 	public Mat getImage(String filename){
 
-		Mat a = Imgcodecs.imread(filename);
+		Mat a = Highgui.imread(filename);
 		
 		return a;
 	}
@@ -430,9 +434,136 @@ public class Popup extends JFrame {
 	}
 	
 	public Mat getFFT(Mat input){
-		return null;
+		
+		Mat frequencyMat = getFrequency(input);
+		
+	    //high pass gaussian filter
+		int row = input.rows();
+		int col = input.cols();
+	    Mat ghpf = createGHPF(input, new Size(row, col), 16.0) ;
+	    
+	    //get double arrays
+	    double[] gaussianPixels = new double[row * col];
+	    double[] resultPixels = new double[row * col];
+	    double[] outputPixels = new double[row * col];
+	    
+	    //set array values
+	    frequencyMat.convertTo(frequencyMat, CvType.CV_64FC1);
+		ghpf.get(0, 0, gaussianPixels);
+		frequencyMat.get(0, 0, resultPixels);
+	    
+	    //create new image
+	    for(int i = 0; i < row; i++){
+	    	for(int j = 0; j < col; j++){
+	    		outputPixels[i*j + i] = gaussianPixels[i*j + i] * resultPixels[i*j + i];
+	    	}
+	    }
+
+	    //final output mat
+	    Mat output = input.clone();
+		output.put(0, 0, gaussianPixels);
+	    
+		return output;
 	}
 	
+	public Mat createGHPF(Mat input, Size size, double cutoff){
+		
+		Mat ghpf = input.clone();
+		ghpf.convertTo(ghpf, CvType.CV_64F);
+				
+		return ghpf;
+	}
+	
+	public Mat getFrequency(Mat input){
+Mat output = input.clone();
+		
+		output.convertTo(output, CvType.CV_64FC1);
+		
+		//get the optimal size
+		int m = Core.getOptimalDFTSize(input.rows());
+		int n = Core.getOptimalDFTSize(input.cols());
+		
+		//create the padded image
+		Mat padded = new Mat(new Size(n,m), CvType.CV_64FC1);
+		Imgproc.copyMakeBorder(output, padded, 0, m - output.rows(), 0, n - output.cols(), Imgproc.BORDER_CONSTANT);
+		
+	    List<Mat> planes = new ArrayList<Mat>();
+	    planes.add(padded);
+	    planes.add(Mat.zeros(padded.rows(), padded.cols(), CvType.CV_64FC1));
+
+	    Mat complexI = Mat.zeros(padded.rows(), padded.cols(), CvType.CV_64FC2);
+
+	    Mat complexI2 = Mat
+	            .zeros(padded.rows(), padded.cols(), CvType.CV_64FC2);
+
+	    Core.merge(planes, complexI); // Add to the expanded another plane with
+	                                    // zeros
+
+	    Core.dft(complexI, complexI2); // this way the result may fit in the
+	                                    // source matrix
+
+	    // compute the magnitude and switch to logarithmic scale
+	    // => log(1 + sqrt(Re(DFT(I))^2 + Im(DFT(I))^2))
+	    Core.split(complexI2, planes); // planes[0] = Re(DFT(I), planes[1] =
+	                                    // Im(DFT(I))
+
+	    Mat mag = new Mat(planes.get(0).size(), planes.get(0).type());
+
+	    Core.magnitude(planes.get(0), planes.get(1), mag);// planes[0]
+	                                                        // =
+	                                                        // magnitude
+
+	    Mat magI = mag;
+	    Mat magI2 = new Mat(magI.size(), magI.type());
+	    Mat magI3 = new Mat(magI.size(), magI.type());
+	    Mat magI4 = new Mat(magI.size(), magI.type());
+	    Mat magI5 = new Mat(magI.size(), magI.type());
+
+	    Core.add(magI, Mat.ones(padded.rows(), padded.cols(), CvType.CV_64FC1),
+	            magI2); // switch to logarithmic scale
+	    Core.log(magI2, magI3);
+
+	    Mat crop = new Mat(magI3, new Rect(0, 0, magI3.cols() & -2,
+	            magI3.rows() & -2));
+
+	    magI4 = crop.clone();
+
+	    // rearrange the quadrants of Fourier image so that the origin is at the
+	    // image center
+	    int cx = magI4.cols() / 2;
+	    int cy = magI4.rows() / 2;
+
+	    Rect q0Rect = new Rect(0, 0, cx, cy);
+	    Rect q1Rect = new Rect(cx, 0, cx, cy);
+	    Rect q2Rect = new Rect(0, cy, cx, cy);
+	    Rect q3Rect = new Rect(cx, cy, cx, cy);
+
+	    Mat q0 = new Mat(magI4, q0Rect); // Top-Left - Create a ROI per quadrant
+	    Mat q1 = new Mat(magI4, q1Rect); // Top-Right
+	    Mat q2 = new Mat(magI4, q2Rect); // Bottom-Left
+	    Mat q3 = new Mat(magI4, q3Rect); // Bottom-Right
+
+	    Mat tmp = new Mat(); // swap quadrants (Top-Left with Bottom-Right)
+	    q0.copyTo(tmp);
+	    q3.copyTo(q0);
+	    tmp.copyTo(q3);
+
+	    q1.copyTo(tmp); // swap quadrant (Top-Right with Bottom-Left)
+	    q2.copyTo(q1);
+	    tmp.copyTo(q2);
+
+	    Core.normalize(magI4, magI5, 0, 255, Core.NORM_MINMAX);
+
+	    Mat realResult = new Mat(magI5.size(), CvType.CV_8UC1);
+
+	    magI5.convertTo(realResult, CvType.CV_8UC1);
+	    
+	    return realResult;
+	}
+	
+	public Mat getSpacial(Mat input){
+		return null;
+	}
 	//returns an Image to display
     public Image toBufferedImage(Mat m){
         int type = BufferedImage.TYPE_BYTE_GRAY;

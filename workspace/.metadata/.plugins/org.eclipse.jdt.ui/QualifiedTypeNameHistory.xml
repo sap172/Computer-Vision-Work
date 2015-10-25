@@ -9,4 +9,7 @@
 <fullyQualifiedTypeName name="org.opencv.imgproc.Imgproc"/>
 <fullyQualifiedTypeName name="java.awt.image.WritableRaster"/>
 <fullyQualifiedTypeName name="java.lang.Integer"/>
+<fullyQualifiedTypeName name="java.awt.List"/>
+<fullyQualifiedTypeName name="java.util.List"/>
+<fullyQualifiedTypeName name="java.util.ArrayList"/>
 </qualifiedTypeNameHistroy>
