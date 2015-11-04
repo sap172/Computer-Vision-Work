@@ -1,9 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <qualifiedTypeNameHistroy>
-<fullyQualifiedTypeName name="java.awt.Image"/>
 <fullyQualifiedTypeName name="org.opencv.core.Mat"/>
-<fullyQualifiedTypeName name="java.awt.image.BufferedImage"/>
-<fullyQualifiedTypeName name="java.awt.image.DataBufferByte"/>
 <fullyQualifiedTypeName name="java.awt.event.ActionListener"/>
 <fullyQualifiedTypeName name="java.awt.event.ActionEvent"/>
 <fullyQualifiedTypeName name="org.opencv.imgproc.Imgproc"/>
@@ -17,4 +14,19 @@
 <fullyQualifiedTypeName name="java.io.File"/>
 <fullyQualifiedTypeName name="java.awt.FileDialog"/>
 <fullyQualifiedTypeName name="javax.swing.JComponent"/>
+<fullyQualifiedTypeName name="java.awt.Image"/>
+<fullyQualifiedTypeName name="java.awt.image.BufferedImage"/>
+<fullyQualifiedTypeName name="java.awt.image.DataBufferByte"/>
+<fullyQualifiedTypeName name="org.bytedeco.javacpp.indexer.DoubleIndexer"/>
+<fullyQualifiedTypeName name="org.bytedeco.javacpp.indexer.ByteIndexer"/>
+<fullyQualifiedTypeName name="javax.swing.JLabel"/>
+<fullyQualifiedTypeName name="javax.swing.ImageIcon"/>
+<fullyQualifiedTypeName name="org.bytedeco.javacv.Frame"/>
+<fullyQualifiedTypeName name="org.bytedeco.javacv.OpenCVFrameConverter"/>
+<fullyQualifiedTypeName name="org.bytedeco.javacv.OpenCVFrameConverter.ToIplImage"/>
+<fullyQualifiedTypeName name="org.bytedeco.javacv.Java2DFrameConverter"/>
+<fullyQualifiedTypeName name="org.bytedeco.javacv.CanvasFrame"/>
+<fullyQualifiedTypeName name="org.bytedeco.javacpp.opencv_videoio.CvCapture"/>
+<fullyQualifiedTypeName name="org.bytedeco.javacv.FrameGrabber"/>
+<fullyQualifiedTypeName name="org.bytedeco.javacv.OpenCVFrameGrabber"/>
 </qualifiedTypeNameHistroy>
